@@ -94,6 +94,7 @@ class ImageCleaner():
         self._duplicates = duplicates
         self._labels = dataset.classes
         self._all_images = self.create_image_list(dataset, fns_idxs, start, end)
+        self._csv = {dataset.x.items[i],self._labels[i] for i in range(len(dataset))}
         self._deleted_fns = []
         self._skipped = 0
         self.render()
@@ -151,12 +152,9 @@ class ImageCleaner():
         class_new,class_old,file_path = change.new,change.old,change.owner.file_path
         fp = Path(file_path)
         parent = fp.parents[1]
-        # TODO: disambiguate relabeling process based on label type (CSV, folders etc.)
-        new_filepath = Path(f'{parent}/{class_new}/{fp.name}')
-        if new_filepath.exists():
-            new_filepath = Path(f'{parent}/{class_new}/{fp.stem}-moved{fp.suffix}')
-        fp.replace(new_filepath)
-        change.owner.file_path = new_filepath
+        self._csv[fp] = class_new
+        # Reassign label to list 
+        #change.owner.file_path = new_filepath
 
     def next_batch(self, _):
         "Handler for 'Next Batch' button click. Deletes all flagged images and renders next batch."
@@ -176,7 +174,7 @@ class ImageCleaner():
 
     def empty_batch(self): self._batch[:] = []
 
-    def delete_image(self, file_path): os.remove(file_path)
+    def delete_image(self, file_path): del self._csv[file_path]
     # TODO: move to .Trash dir
 
     def empty(self):
@@ -201,12 +199,20 @@ class ImageCleaner():
         imgs = [self._all_images[:self._batch_size][0][1], self._all_images[:self._batch_size][1][1]]
         return any(img in self._deleted_fns for img in imgs)
 
+
+    def write_csv(self):
+        return self._csv
+
     def render(self):
         "Re-render Jupyter cell for batch of images"
         clear_output()
-        if self.empty() and self._skipped>0: return display(f'No images to show :). {self._skipped} pairs were '
-                                                            f'skipped since at least one of the images was deleted by the user.')
-        elif self.empty(): return display('No images to show :)')
+        if self.empty() and self._skipped>0:
+            display(f'No images to show :). {self._skipped} pairs were '
+                    f'skipped since at least one of the images was deleted by the user.')
+            return self.write_csv() 
+        elif self.empty():
+            display('No images to show :)')
+            return self.write_csv() 
         if self.batch_contains_deleted():
             self.next_batch(None)
             self._skipped += 1
