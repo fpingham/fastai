@@ -210,7 +210,7 @@ class Learner():
         state = torch.load(self.path/self.model_dir/f'{name}.pth', map_location=device)
         if set(state.keys()) == {'model', 'opt'}:
             self.model.load_state_dict(state['model'], strict=strict)
-            if ifnone(with_opt,True): 
+            if ifnone(with_opt,True):
                 if not hasattr(self, 'opt'): opt = self.create_opt(defaults.lr, self.wd)
                 self.opt.load_state_dict(state['opt'])
         else:
